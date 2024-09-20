@@ -1,7 +1,7 @@
 package usecase
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/Mi7teR/exr/internal/entity"
 	"github.com/Mi7teR/exr/internal/interface/driver"
@@ -9,8 +9,8 @@ import (
 )
 
 type ExchangeRateUsecase interface {
-	GetRates(filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error)
-	AddRates()
+	GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error)
+	AddRates(ctx context.Context) error
 }
 
 type exhangeRateUsecase struct {
@@ -24,13 +24,14 @@ func NewExchangeRateUsecase(repo repository.ExchangeRateRepository) ExchangeRate
 	}
 }
 
-func (u *exhangeRateUsecase) GetRates(filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error) {
+func (u *exhangeRateUsecase) GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error) {
 	var rates []*entity.ExchangeRate
 	var err error
 
 	switch {
 	case filter.CurrencyCode != "" && filter.Source != "":
 		rates, err = u.repo.GetExchangeRatesByCurrencyCodeAndSource(
+			ctx,
 			filter.CurrencyCode,
 			filter.Source,
 			filter.StartDate,
@@ -38,18 +39,21 @@ func (u *exhangeRateUsecase) GetRates(filter *ExchangeRateFilter) ([]*entity.Exc
 		)
 	case filter.CurrencyCode != "":
 		rates, err = u.repo.GetExchangeRatesByCurrencyCode(
+			ctx,
 			filter.CurrencyCode,
 			filter.StartDate,
 			filter.EndDate,
 		)
 	case filter.Source != "":
 		rates, err = u.repo.GetExchangeRatesBySource(
+			ctx,
 			filter.Source,
 			filter.StartDate,
 			filter.EndDate,
 		)
 	default:
 		rates, err = u.repo.GetExchangeRates(
+			ctx,
 			filter.StartDate,
 			filter.EndDate,
 		)
@@ -58,18 +62,20 @@ func (u *exhangeRateUsecase) GetRates(filter *ExchangeRateFilter) ([]*entity.Exc
 	return rates, err
 }
 
-func (u *exhangeRateUsecase) AddRates() {
+func (u *exhangeRateUsecase) AddRates(ctx context.Context) error {
 	for _, driver := range u.drivers {
-		rates, err := driver.FetchRates()
+		rates, err := driver.FetchRates(ctx)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 
 		for _, rate := range rates {
-			err := u.repo.AddExchangeRate(rate)
+			err = u.repo.AddExchangeRate(ctx, rate)
 			if err != nil {
-				fmt.Println(err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
