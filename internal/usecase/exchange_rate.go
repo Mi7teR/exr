@@ -6,6 +6,7 @@ import (
 	"github.com/Mi7teR/exr/internal/entity"
 	"github.com/Mi7teR/exr/internal/interface/driver"
 	"github.com/Mi7teR/exr/internal/interface/repository"
+	"golang.org/x/sync/errgroup"
 )
 
 type ExchangeRateUsecase interface {
@@ -63,18 +64,26 @@ func (u *exhangeRateUsecase) GetRates(ctx context.Context, filter *ExchangeRateF
 }
 
 func (u *exhangeRateUsecase) AddRates(ctx context.Context) error {
+	g := new(errgroup.Group)
 	for _, driver := range u.drivers {
-		rates, err := driver.FetchRates(ctx)
-		if err != nil {
-			return err
-		}
-
-		for _, rate := range rates {
-			err = u.repo.AddExchangeRate(ctx, rate)
+		g.Go(func() error {
+			rates, err := driver.FetchRates(ctx)
 			if err != nil {
 				return err
 			}
-		}
+
+			for _, rate := range rates {
+				err = u.repo.AddExchangeRate(ctx, rate)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	return nil
