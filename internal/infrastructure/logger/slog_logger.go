@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/Mi7teR/exr/internal/logger"
+	"github.com/Mi7teR/exr/internal/interface/logger"
 )
 
 type slogLogger struct {
