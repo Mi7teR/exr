@@ -1,5 +1,6 @@
 package logger
 
+// TODO Move this interface to another package.
 type Logger interface {
 	Debug(msg string, args ...interface{})
 	Info(msg string, args ...interface{})

@@ -2,29 +2,58 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/Mi7teR/exr/internal/entity"
-	"github.com/Mi7teR/exr/internal/interface/driver"
-	"github.com/Mi7teR/exr/internal/interface/repository"
 	"golang.org/x/sync/errgroup"
 )
 
+// [TODO] move to delivery layer
 type ExchangeRateUsecase interface {
 	GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error)
 	AddRates(ctx context.Context) error
 }
 
-type exhangeRateUsecase struct {
-	repo    repository.ExchangeRateRepository
-	drivers map[string]driver.Driver
+// Driver is an interface that defines the methods that a driver must implement.
+type Driver interface {
+	// FetchRates returns a list of exchange rates.
+	FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error)
 }
 
-func NewExchangeRateUsecase(repo repository.ExchangeRateRepository) ExchangeRateUsecase {
+// ExchangeRateRepository is an interface that defines the methods that a repository must implement.
+type ExchangeRateRepository interface {
+	// GetExchangeRates returns a list of exchange rates.
+	GetExchangeRates(ctx context.Context, startDate, endDate time.Time) ([]*entity.ExchangeRate, error)
+	// GetExchangeRatesByCurrencyCode returns a list of exchange rates by currency code.
+	GetExchangeRatesByCurrencyCode(
+		ctx context.Context, currencyCode string, startDate, endDate time.Time,
+	) ([]*entity.ExchangeRate, error)
+	// GetExchangeRatesByCurrencyCodeAndSource returns a list of exchange rates by currency code and source.
+	GetExchangeRatesByCurrencyCodeAndSource(
+		ctx context.Context,
+		currencyCode, source string,
+		startDate, endDate time.Time,
+	) ([]*entity.ExchangeRate, error)
+	// GetExchangeRatesBySource returns a list of exchange rates by source.
+	GetExchangeRatesBySource(
+		ctx context.Context, source string, startDate, endDate time.Time,
+	) ([]*entity.ExchangeRate, error)
+	// AddExchangeRate adds an exchange rate.
+	AddExchangeRate(ctx context.Context, exchangeRate *entity.ExchangeRate) error
+}
+
+type exhangeRateUsecase struct {
+	repo    ExchangeRateRepository
+	drivers map[string]Driver
+}
+
+func NewExchangeRateUsecase(repo ExchangeRateRepository) ExchangeRateUsecase {
 	return &exhangeRateUsecase{
 		repo: repo,
 	}
 }
 
+// GetRates returns a list of exchange rates.
 func (u *exhangeRateUsecase) GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error) {
 	var rates []*entity.ExchangeRate
 	var err error
