@@ -42,14 +42,16 @@ type ExchangeRateRepository interface {
 	AddExchangeRate(ctx context.Context, exchangeRate *entity.ExchangeRate) error
 }
 
+// exhangeRateUsecase represents the usecase for exchange rates.
 type exhangeRateUsecase struct {
 	repo    ExchangeRateRepository
 	drivers map[string]Driver
 }
 
-func NewExchangeRateUsecase(repo ExchangeRateRepository) ExchangeRateUsecase {
+func NewExchangeRateUsecase(repo ExchangeRateRepository, drivers map[string]Driver) ExchangeRateUsecase {
 	return &exhangeRateUsecase{
-		repo: repo,
+		repo:    repo,
+		drivers: drivers,
 	}
 }
 
