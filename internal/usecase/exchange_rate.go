@@ -8,12 +8,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// [TODO] move to delivery layer
-type ExchangeRateUsecase interface {
-	GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error)
-	AddRates(ctx context.Context) error
-}
-
 // Driver is an interface that defines the methods that a driver must implement.
 type Driver interface {
 	// FetchRates returns a list of exchange rates.
@@ -42,21 +36,24 @@ type ExchangeRateRepository interface {
 	AddExchangeRate(ctx context.Context, exchangeRate *entity.ExchangeRate) error
 }
 
-// exhangeRateUsecase represents the usecase for exchange rates.
-type exhangeRateUsecase struct {
+// ExchangeRateUsecase represents the usecase for exchange rates.
+type ExchangeRateUsecase struct {
 	repo    ExchangeRateRepository
 	drivers map[string]Driver
 }
 
-func NewExchangeRateUsecase(repo ExchangeRateRepository, drivers map[string]Driver) ExchangeRateUsecase {
-	return &exhangeRateUsecase{
+func NewExchangeRateUsecase(repo ExchangeRateRepository, drivers map[string]Driver) *ExchangeRateUsecase {
+	return &ExchangeRateUsecase{
 		repo:    repo,
 		drivers: drivers,
 	}
 }
 
 // GetRates returns a list of exchange rates.
-func (u *exhangeRateUsecase) GetRates(ctx context.Context, filter *ExchangeRateFilter) ([]*entity.ExchangeRate, error) {
+func (u *ExchangeRateUsecase) GetRates(
+	ctx context.Context,
+	filter *ExchangeRateFilter,
+) ([]*entity.ExchangeRate, error) {
 	var rates []*entity.ExchangeRate
 	var err error
 
@@ -94,7 +91,7 @@ func (u *exhangeRateUsecase) GetRates(ctx context.Context, filter *ExchangeRateF
 	return rates, err
 }
 
-func (u *exhangeRateUsecase) AddRates(ctx context.Context) error {
+func (u *ExchangeRateUsecase) AddRates(ctx context.Context) error {
 	g := new(errgroup.Group)
 	for _, driver := range u.drivers {
 		g.Go(func() error {
