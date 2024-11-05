@@ -7,37 +7,37 @@ import (
 	"github.com/Mi7teR/exr/internal/interface/logger"
 )
 
-type slogLogger struct {
+type SlogLogger struct {
 	logger *slog.Logger
 }
 
-func NewSlogLogger() logger.Logger {
+func NewSlogLogger() *SlogLogger {
 	l := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
 	}))
-	return &slogLogger{
+	return &SlogLogger{
 		logger: l,
 	}
 }
 
-func (l *slogLogger) Debug(msg string, args ...interface{}) {
+func (l *SlogLogger) Debug(msg string, args ...interface{}) {
 	l.logger.Debug(msg, args...)
 }
 
-func (l *slogLogger) Info(msg string, args ...interface{}) {
+func (l *SlogLogger) Info(msg string, args ...interface{}) {
 	l.logger.Info(msg, args...)
 }
 
-func (l *slogLogger) Warn(msg string, args ...interface{}) {
+func (l *SlogLogger) Warn(msg string, args ...interface{}) {
 	l.logger.Warn(msg, args...)
 }
 
-func (l *slogLogger) Error(msg string, args ...interface{}) {
+func (l *SlogLogger) Error(msg string, args ...interface{}) {
 	l.logger.Error(msg, args...)
 }
 
-func (l *slogLogger) With(args ...interface{}) logger.Logger {
-	return &slogLogger{
+func (l *SlogLogger) With(args ...interface{}) logger.Logger {
+	return &SlogLogger{
 		logger: l.logger.With(args...),
 	}
 }

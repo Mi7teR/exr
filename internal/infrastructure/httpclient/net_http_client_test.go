@@ -21,19 +21,14 @@ func TestNewNetHTTPClient(t *testing.T) {
 		t.Fatal("Expected client to be non-nil")
 	}
 
-	// Type assert client to *http.Client
-	httpClient, ok := client.(*http.Client)
-	if !ok {
-		t.Fatalf("Expected client to be *http.Client, got %T", client)
-	}
-
+	httpClient := client
 	// Assert timeout is set correctly
 	if httpClient.Timeout != DefaultTimeout {
 		t.Errorf("Expected timeout to be %v, got %v", DefaultTimeout, httpClient.Timeout)
 	}
 
 	// Assert Transport is of type *httpclient.LogRoundTripper
-	_, ok = httpClient.Transport.(*LogRoundTripper)
+	_, ok := httpClient.Transport.(*LogRoundTripper)
 	if !ok {
 		t.Errorf("Expected Transport to be *httpclient.LogRoundTripper, got %T", httpClient.Transport)
 	}
