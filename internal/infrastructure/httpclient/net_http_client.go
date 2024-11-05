@@ -4,13 +4,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Mi7teR/exr/internal/interface/httpclient"
 	"github.com/Mi7teR/exr/internal/interface/logger"
 )
 
 const DefaultTimeout = 30 * time.Second
 
-func NewNetHTTPClient(l logger.Logger) httpclient.HTTPClient {
+func NewNetHTTPClient(l logger.Logger) *http.Client {
 	roundTripper := &LogRoundTripper{
 		l:         l,
 		transport: http.DefaultTransport,
