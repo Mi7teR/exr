@@ -52,7 +52,7 @@ func Test_canPerformCurrency(t *testing.T) {
 	}
 }
 
-func TestFetchRates(t *testing.T) {
+func TestNBRK_FetchRates(t *testing.T) {
 	tests := []struct {
 		name           string
 		responseBody   string
