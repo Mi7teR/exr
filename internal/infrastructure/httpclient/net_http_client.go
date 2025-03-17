@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Mi7teR/exr/internal/interface/logger"
+	"github.com/Mi7teR/exr/internal/application/logger"
 )
 
 const DefaultTimeout = 30 * time.Second

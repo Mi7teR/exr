@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	logger "github.com/Mi7teR/exr/internal/interface/logger"
+	logger "github.com/Mi7teR/exr/internal/application/logger"
 	gomock "go.uber.org/mock/gomock"
 )
 
