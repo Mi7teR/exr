@@ -26,11 +26,11 @@ type halykResponse struct {
 	Result bool `json:"result"`
 	Data   struct {
 		CurrencyHistory map[string]struct {
-			Date          string                   `json:"date"`
-			PrivatePersons map[string]halykPair    `json:"privatePersons"`
-			LegalPersons   map[string]halykPair    `json:"legalPersons"`
-			Cards          map[string]halykPair    `json:"cards"`
-			CrossCourses   map[string]halykPair    `json:"crossCourses"`
+			Date           string               `json:"date"`
+			PrivatePersons map[string]halykPair `json:"privatePersons"`
+			LegalPersons   map[string]halykPair `json:"legalPersons"`
+			Cards          map[string]halykPair `json:"cards"`
+			CrossCourses   map[string]halykPair `json:"crossCourses"`
 		} `json:"currencyHistory"`
 	} `json:"data"`
 }

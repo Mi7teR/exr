@@ -17,7 +17,7 @@ type halykMockResp struct {
 	Result bool `json:"result"`
 	Data   struct {
 		CurrencyHistory map[string]struct {
-			Date           string                          `json:"date"`
+			Date           string                                 `json:"date"`
 			PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
 		} `json:"currencyHistory"`
 	} `json:"data"`
@@ -26,7 +26,7 @@ type halykMockResp struct {
 func TestHalyk_FetchRates(t *testing.T) {
 	baseResp := halykMockResp{Result: true}
 	baseResp.Data.CurrencyHistory = map[string]struct {
-		Date           string                          `json:"date"`
+		Date           string                                 `json:"date"`
 		PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
 	}{
 		"0": {
@@ -87,7 +87,7 @@ func TestHalyk_FetchRates(t *testing.T) {
 	t.Run("no supported", func(t *testing.T) {
 		resp := halykMockResp{Result: true}
 		resp.Data.CurrencyHistory = map[string]struct {
-			Date           string                          `json:"date"`
+			Date           string                                 `json:"date"`
 			PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
 		}{
 			"0": {

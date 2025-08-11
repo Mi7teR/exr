@@ -28,14 +28,14 @@ type KaspiResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 	Body    []struct {
-		Currency string `json:"currency"`
-		Buy      int    `json:"buy"`
-		Sale     int    `json:"sale"`
+		Currency string  `json:"currency"`
+		Buy      float64 `json:"buy"`
+		Sale     float64 `json:"sale"`
 	} `json:"body"`
 }
 
 // NewKaspi creates a new Kaspi driver.
-// Default addr is "https://guide.kaspi.kz/client/api/intgr/currency/rate/aggregate".
+// Default addr is "https://guide.kaspi.kz/client/api/v2/intgr/currency/rate/aggregate".
 // Seems that addr works only from KZ location.
 func NewKaspi(addr string, httpClient HTTPClient) *Kaspi {
 	return &Kaspi{
@@ -85,8 +85,8 @@ func (k *Kaspi) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) 
 		rates = append(rates, &entity.ExchangeRate{
 			Source:       "Kaspi",
 			CurrencyCode: item.Currency,
-			Buy:          strconv.FormatInt(int64(item.Buy), 10),
-			Sell:         strconv.FormatInt(int64(item.Sale), 10),
+			Buy:          strconv.FormatFloat(item.Buy, 'f', -1, 64),
+			Sell:         strconv.FormatFloat(item.Sale, 'f', -1, 64),
 			CreatedAt:    now,
 		})
 	}
