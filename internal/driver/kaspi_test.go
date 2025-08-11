@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Mi7teR/exr/internal/driver"
 	"github.com/Mi7teR/exr/internal/entity"
@@ -73,6 +74,23 @@ func TestKaspi_FetchRates(t *testing.T) {
 			expectedRates:  nil,
 			expectedError:  true,
 		},
+		{
+			name: "Non-2xx but OK body",
+			responseBody: kaspiMockResponse{
+				Status:  "OK",
+				Message: "OK",
+				Body: []struct {
+					Currency string `json:"currency"`
+					Buy      int    `json:"buy"`
+					Sale     int    `json:"sale"`
+				}{
+					{"USD", 450, 460},
+				},
+			},
+			responseStatus: http.StatusInternalServerError,
+			expectedRates:  nil,
+			expectedError:  true,
+		},
 	}
 
 	for _, test := range tests {
@@ -96,7 +114,17 @@ func TestKaspi_FetchRates(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, test.expectedRates, rates)
+				// сравним без CreatedAt
+				require.Equal(t, len(test.expectedRates), len(rates))
+				for i := range rates {
+					assert.Equal(t, test.expectedRates[i].Source, rates[i].Source)
+					assert.Equal(t, test.expectedRates[i].CurrencyCode, rates[i].CurrencyCode)
+					assert.Equal(t, test.expectedRates[i].Buy, rates[i].Buy)
+					assert.Equal(t, test.expectedRates[i].Sell, rates[i].Sell)
+					// CreatedAt должен быть установлен (не нулевое значение)
+					assert.False(t, rates[i].CreatedAt.IsZero(), "CreatedAt must be set")
+					assert.WithinDuration(t, time.Now().UTC(), rates[i].CreatedAt, 5*time.Second)
+				}
 			}
 		})
 	}

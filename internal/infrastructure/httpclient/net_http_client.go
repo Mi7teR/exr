@@ -29,13 +29,30 @@ func (lrt *LogRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	start := time.Now()
 
 	resp, err := lrt.transport.RoundTrip(req)
+	elapsed := time.Since(start)
 
+	if err != nil {
+		status := "" // нет статуса при ошибке
+		if resp != nil {
+			status = resp.Status
+		}
+		lrt.l.Error("http request failed",
+			"method", req.Method,
+			"url", req.URL, // порядок аргументов сохраняем
+			"status", status,
+			"error", err,
+			"duration", elapsed,
+		)
+		return resp, err
+	}
+
+	// успешный запрос
 	lrt.l.Info("http request completed",
 		"method", req.Method,
 		"url", req.URL,
 		"status", resp.Status,
-		"duration", time.Since(start),
+		"duration", elapsed,
 	)
 
-	return resp, err
+	return resp, nil
 }

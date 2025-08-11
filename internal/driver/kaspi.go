@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Mi7teR/exr/internal/entity"
 )
@@ -45,9 +47,9 @@ func NewKaspi(addr string, httpClient HTTPClient) *Kaspi {
 // FetchRates fetches exchange rates from the Kaspi API.
 func (k *Kaspi) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 	reqBody := bytes.NewBufferString(kaspiRequestBody)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, k.addr, reqBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, k.addr, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -56,30 +58,36 @@ func (k *Kaspi) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) 
 
 	resp, err := k.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("do request: %w", err)
 	}
-
 	defer resp.Body.Close()
 
-	var res KaspiResponse
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 
-	err = json.NewDecoder(resp.Body).Decode(&res)
-	if err != nil {
-		return nil, err
+	var res KaspiResponse
+	if err = json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	if res.Status != "OK" || res.Message != "OK" {
 		return nil, fmt.Errorf("Kaspi API returned error: %s", res.Message)
 	}
 
-	var rates []*entity.ExchangeRate
+	if len(res.Body) == 0 {
+		return nil, errors.New("empty rates body")
+	}
 
+	now := time.Now().UTC()
+	var rates []*entity.ExchangeRate
 	for _, item := range res.Body {
 		rates = append(rates, &entity.ExchangeRate{
 			Source:       "Kaspi",
 			CurrencyCode: item.Currency,
 			Buy:          strconv.FormatInt(int64(item.Buy), 10),
 			Sell:         strconv.FormatInt(int64(item.Sale), 10),
+			CreatedAt:    now,
 		})
 	}
 

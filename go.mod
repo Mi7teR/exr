@@ -3,6 +3,7 @@ module github.com/Mi7teR/exr
 go 1.23
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.30
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/sync v0.8.0
