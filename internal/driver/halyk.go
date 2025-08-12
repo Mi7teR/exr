@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -44,6 +45,11 @@ func NewHalyk(addr string, httpClient HTTPClient) *Halyk {
 	return &Halyk{addr: addr, httpClient: httpClient}
 }
 
+const (
+	pairSeparator = "/"
+	splitLimit    = 2
+)
+
 // FetchRates returns latest (index 0) private persons rates for supported currencies.
 func (h *Halyk) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.addr, nil)
@@ -66,23 +72,23 @@ func (h *Halyk) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) 
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	if !r.Result {
-		return nil, fmt.Errorf("result flag false")
+		return nil, errors.New("result flag false")
 	}
 	if len(r.Data.CurrencyHistory) == 0 {
-		return nil, fmt.Errorf("empty currency history")
+		return nil, errors.New("empty currency history")
 	}
 
 	// take index "0" (latest)
 	latest, ok := r.Data.CurrencyHistory["0"]
 	if !ok {
-		return nil, fmt.Errorf("no latest index 0 in currencyHistory")
+		return nil, errors.New("no latest index 0 in currencyHistory")
 	}
 
 	supported := map[string]struct{}{"USD": {}, "EUR": {}, "RUB": {}}
 	now := time.Now().UTC()
 	var rates []*entity.ExchangeRate
 	for pair, v := range latest.PrivatePersons { // keys like USD/KZT
-		base := strings.SplitN(pair, "/", 2)[0]
+		base := strings.SplitN(pair, pairSeparator, splitLimit)[0]
 		if _, ok = supported[base]; !ok {
 			continue
 		}
@@ -95,7 +101,7 @@ func (h *Halyk) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) 
 		})
 	}
 	if len(rates) == 0 {
-		return nil, fmt.Errorf("no supported currency rates found")
+		return nil, errors.New("no supported currency rates found")
 	}
 	return rates, nil
 }

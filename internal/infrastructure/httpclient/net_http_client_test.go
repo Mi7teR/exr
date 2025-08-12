@@ -77,18 +77,18 @@ func TestLogRoundTripper_RoundTrip(t *testing.T) {
 	}
 }
 
-// error transport returning only error (resp == nil)
+// error transport returning only error (resp == nil).
 type errorTransport struct{ err error }
 
 func (e *errorTransport) RoundTrip(_ *http.Request) (*http.Response, error) { return nil, e.err }
 
-// error transport returning resp + error
+// error transport returning resp + error.
 type errorWithRespTransport struct{ err error }
 
 func (e *errorWithRespTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return &http.Response{
 		Status:     "500 Internal Server Error",
-		StatusCode: 500,
+		StatusCode: http.StatusInternalServerError,
 		Body:       io.NopCloser(strings.NewReader("fail")),
 		Request:    req,
 	}, e.err

@@ -11,6 +11,8 @@ import (
 )
 
 // SQLiteExchangeRateRepository implements ExchangeRateRepository using SQLite.
+//
+//nolint:revive // exported type in sqlite package intentionally includes SQLite for clarity.
 type SQLiteExchangeRateRepository struct {
 	db *sql.DB
 }
@@ -36,13 +38,21 @@ func (r *SQLiteExchangeRateRepository) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_exchange_rates_created_at ON exchange_rates(created_at);
 	CREATE INDEX IF NOT EXISTS idx_exchange_rates_currency_code ON exchange_rates(currency_code);
 	CREATE INDEX IF NOT EXISTS idx_exchange_rates_source ON exchange_rates(source);
-	CREATE INDEX IF NOT EXISTS idx_exchange_rates_currency_source_created ON exchange_rates(currency_code, source, created_at);`
-	_, err := r.db.Exec(schema)
+	CREATE INDEX IF NOT EXISTS idx_exchange_rates_currency_source_created 
+		ON exchange_rates(
+			currency_code, 
+			source, 
+			created_at
+		);`
+	_, err := r.db.ExecContext(context.Background(), schema)
 	return err
 }
 
 // AddExchangeRate stores a new exchange rate.
-func (r *SQLiteExchangeRateRepository) AddExchangeRate(ctx context.Context, rate *entity.ExchangeRate) error {
+func (r *SQLiteExchangeRateRepository) AddExchangeRate(
+	ctx context.Context,
+	rate *entity.ExchangeRate,
+) error {
 	if rate.CreatedAt.IsZero() {
 		rate.CreatedAt = time.Now().UTC()
 	}
@@ -55,7 +65,10 @@ func (r *SQLiteExchangeRateRepository) AddExchangeRate(ctx context.Context, rate
 }
 
 // GetExchangeRates returns latest rates per currency+source in range with prev change.
-func (r *SQLiteExchangeRateRepository) GetExchangeRates(ctx context.Context, startDate, endDate time.Time) ([]*entity.ExchangeRate, error) {
+func (r *SQLiteExchangeRateRepository) GetExchangeRates(
+	ctx context.Context,
+	startDate, endDate time.Time,
+) ([]*entity.ExchangeRate, error) {
 	q := `WITH latest AS (
 		SELECT id, currency_code, buy, sell, source, created_at,
 		ROW_NUMBER() OVER (PARTITION BY currency_code, source ORDER BY created_at DESC) rn
@@ -79,7 +92,11 @@ func (r *SQLiteExchangeRateRepository) GetExchangeRates(ctx context.Context, sta
 }
 
 // GetExchangeRatesByCurrencyCode returns latest rate per source for the currency in range with prev change.
-func (r *SQLiteExchangeRateRepository) GetExchangeRatesByCurrencyCode(ctx context.Context, currencyCode string, startDate, endDate time.Time) ([]*entity.ExchangeRate, error) {
+func (r *SQLiteExchangeRateRepository) GetExchangeRatesByCurrencyCode(
+	ctx context.Context,
+	currencyCode string,
+	startDate, endDate time.Time,
+) ([]*entity.ExchangeRate, error) {
 	q := `WITH latest AS (
 		SELECT id, currency_code, buy, sell, source, created_at,
 		ROW_NUMBER() OVER (PARTITION BY source ORDER BY created_at DESC) rn
@@ -103,18 +120,36 @@ func (r *SQLiteExchangeRateRepository) GetExchangeRatesByCurrencyCode(ctx contex
 }
 
 // GetExchangeRatesByCurrencyCodeAndSource returns rates filtered by currency & source.
-func (r *SQLiteExchangeRateRepository) GetExchangeRatesByCurrencyCodeAndSource(ctx context.Context, currencyCode, source string, startDate, endDate time.Time) ([]*entity.ExchangeRate, error) {
-	q := `SELECT currency_code, buy, sell, source, created_at FROM exchange_rates WHERE currency_code = ? AND source = ? AND created_at BETWEEN ? AND ? ORDER BY created_at DESC`
+func (r *SQLiteExchangeRateRepository) GetExchangeRatesByCurrencyCodeAndSource(
+	ctx context.Context,
+	currencyCode, source string,
+	startDate, endDate time.Time,
+) ([]*entity.ExchangeRate, error) {
+	q := `SELECT currency_code, buy, sell, source, created_at
+		FROM exchange_rates
+		WHERE currency_code = ? AND source = ? AND created_at BETWEEN ? AND ?
+		ORDER BY created_at DESC`
 	return r.queryRates(ctx, q, currencyCode, source, normalizeStart(startDate), normalizeEnd(endDate))
 }
 
 // GetExchangeRatesBySource returns rates filtered by source.
-func (r *SQLiteExchangeRateRepository) GetExchangeRatesBySource(ctx context.Context, source string, startDate, endDate time.Time) ([]*entity.ExchangeRate, error) {
-	q := `SELECT currency_code, buy, sell, source, created_at FROM exchange_rates WHERE source = ? AND created_at BETWEEN ? AND ? ORDER BY created_at DESC`
+func (r *SQLiteExchangeRateRepository) GetExchangeRatesBySource(
+	ctx context.Context,
+	source string,
+	startDate, endDate time.Time,
+) ([]*entity.ExchangeRate, error) {
+	q := `SELECT currency_code, buy, sell, source, created_at
+		FROM exchange_rates
+		WHERE source = ? AND created_at BETWEEN ? AND ?
+		ORDER BY created_at DESC`
 	return r.queryRates(ctx, q, source, normalizeStart(startDate), normalizeEnd(endDate))
 }
 
-func (r *SQLiteExchangeRateRepository) queryRates(ctx context.Context, query string, args ...any) ([]*entity.ExchangeRate, error) {
+func (r *SQLiteExchangeRateRepository) queryRates(
+	ctx context.Context,
+	query string,
+	args ...any,
+) ([]*entity.ExchangeRate, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -124,7 +159,13 @@ func (r *SQLiteExchangeRateRepository) queryRates(ctx context.Context, query str
 	var out []*entity.ExchangeRate
 	for rows.Next() {
 		var rate entity.ExchangeRate
-		if err = rows.Scan(&rate.CurrencyCode, &rate.Buy, &rate.Sell, &rate.Source, &rate.CreatedAt); err != nil {
+		if err = rows.Scan(
+			&rate.CurrencyCode,
+			&rate.Buy,
+			&rate.Sell,
+			&rate.Source,
+			&rate.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		out = append(out, &rate)
@@ -138,7 +179,11 @@ func (r *SQLiteExchangeRateRepository) queryRates(ctx context.Context, query str
 	return out, nil
 }
 
-func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(ctx context.Context, query string, args ...any) ([]*entity.ExchangeRate, error) {
+func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(
+	ctx context.Context,
+	query string,
+	args ...any,
+) ([]*entity.ExchangeRate, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -149,24 +194,20 @@ func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(ctx context.Context, q
 	for rows.Next() {
 		var rate entity.ExchangeRate
 		var prevBuy, prevSell sql.NullString
-		if err = rows.Scan(&rate.CurrencyCode, &rate.Buy, &rate.Sell, &rate.Source, &rate.CreatedAt, &prevBuy, &prevSell); err != nil {
+		if err = rows.Scan(
+			&rate.CurrencyCode,
+			&rate.Buy,
+			&rate.Sell,
+			&rate.Source,
+			&rate.CreatedAt,
+			&prevBuy,
+			&prevSell,
+		); err != nil {
 			return nil, err
 		}
 		// compute changes
-		if prevBuy.Valid {
-			if curr, errParseCurr := strconv.ParseFloat(rate.Buy, 64); errParseCurr == nil {
-				if prev, errParsePrev := strconv.ParseFloat(prevBuy.String, 64); errParsePrev == nil {
-					rate.BuyChangePrev = curr - prev
-				}
-			}
-		}
-		if prevSell.Valid {
-			if curr, errParseCurr := strconv.ParseFloat(rate.Sell, 64); errParseCurr == nil {
-				if prev, errParsePrev := strconv.ParseFloat(prevSell.String, 64); errParsePrev == nil {
-					rate.SellChangePrev = curr - prev
-				}
-			}
-		}
+		rate.BuyChangePrev = diff(rate.Buy, prevBuy)
+		rate.SellChangePrev = diff(rate.Sell, prevSell)
 		out = append(out, &rate)
 	}
 	if err = rows.Err(); err != nil {
@@ -176,6 +217,18 @@ func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(ctx context.Context, q
 		return nil, internalErrors.ErrNotFound
 	}
 	return out, nil
+}
+
+func diff(curr string, prev sql.NullString) float64 {
+	if !prev.Valid {
+		return 0
+	}
+	currF, err1 := strconv.ParseFloat(curr, 64)
+	prevF, err2 := strconv.ParseFloat(prev.String, 64)
+	if err1 != nil || err2 != nil {
+		return 0
+	}
+	return currF - prevF
 }
 
 func normalizeStart(t time.Time) time.Time {

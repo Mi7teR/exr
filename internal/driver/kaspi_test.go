@@ -115,7 +115,7 @@ func TestKaspi_FetchRates(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				// сравним без CreatedAt
-				require.Equal(t, len(test.expectedRates), len(rates))
+				require.Len(t, rates, len(test.expectedRates))
 				for i := range rates {
 					assert.Equal(t, test.expectedRates[i].Source, rates[i].Source)
 					assert.Equal(t, test.expectedRates[i].CurrencyCode, rates[i].CurrencyCode)

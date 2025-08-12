@@ -13,12 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type pricePair struct {
+	Sell float64 `json:"sell"`
+	Buy  float64 `json:"buy"`
+}
+
 type halykMockResp struct {
 	Result bool `json:"result"`
 	Data   struct {
 		CurrencyHistory map[string]struct {
-			Date           string                                 `json:"date"`
-			PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
+			Date           string               `json:"date"`
+			PrivatePersons map[string]pricePair `json:"privatePersons"`
 		} `json:"currencyHistory"`
 	} `json:"data"`
 }
@@ -26,12 +31,12 @@ type halykMockResp struct {
 func TestHalyk_FetchRates(t *testing.T) {
 	baseResp := halykMockResp{Result: true}
 	baseResp.Data.CurrencyHistory = map[string]struct {
-		Date           string                                 `json:"date"`
-		PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
+		Date           string               `json:"date"`
+		PrivatePersons map[string]pricePair `json:"privatePersons"`
 	}{
 		"0": {
 			Date: time.Now().Format("2006-01-02"),
-			PrivatePersons: map[string]struct{ Sell, Buy float64 }{
+			PrivatePersons: map[string]pricePair{
 				"USD/KZT": {Sell: 544.6, Buy: 537.6},
 				"EUR/KZT": {Sell: 635.26, Buy: 625.76},
 				"RUB/KZT": {Sell: 7.07, Buy: 6.57},
@@ -87,12 +92,12 @@ func TestHalyk_FetchRates(t *testing.T) {
 	t.Run("no supported", func(t *testing.T) {
 		resp := halykMockResp{Result: true}
 		resp.Data.CurrencyHistory = map[string]struct {
-			Date           string                                 `json:"date"`
-			PrivatePersons map[string]struct{ Sell, Buy float64 } `json:"privatePersons"`
+			Date           string               `json:"date"`
+			PrivatePersons map[string]pricePair `json:"privatePersons"`
 		}{
 			"0": {
 				Date:           time.Now().Format("2006-01-02"),
-				PrivatePersons: map[string]struct{ Sell, Buy float64 }{"XAU/USD": {Sell: 1, Buy: 2}},
+				PrivatePersons: map[string]pricePair{"XAU/USD": {Sell: 1, Buy: 2}},
 			},
 		}
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

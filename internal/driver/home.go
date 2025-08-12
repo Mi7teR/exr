@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -28,10 +29,12 @@ type homeResponse struct {
 	} `json:"currency"`
 }
 
-var homeSupported = map[string]string{ // id -> currency code
-	"1":  "USD",
-	"17": "EUR",
-	"16": "RUB",
+func homeSupportedMap() map[string]string { // id -> currency code
+	return map[string]string{
+		"1":  "USD",
+		"17": "EUR",
+		"16": "RUB",
+	}
 }
 
 // NewHome creates driver for home.kz.
@@ -64,7 +67,7 @@ func (h *Home) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 	now := time.Now().UTC()
 	var rates []*entity.ExchangeRate
 	for _, c := range r.Currency {
-		code, ok := homeSupported[c.ID]
+		code, ok := homeSupportedMap()[c.ID]
 		if !ok {
 			continue
 		}
@@ -77,7 +80,7 @@ func (h *Home) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 		})
 	}
 	if len(rates) == 0 {
-		return nil, fmt.Errorf("no supported currency rates found")
+		return nil, errors.New("no supported currency rates found")
 	}
 	return rates, nil
 }

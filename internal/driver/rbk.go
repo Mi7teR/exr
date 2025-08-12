@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -47,6 +48,10 @@ func NewRBK(addr string, httpClient HTTPClient) *RBK {
 	return &RBK{addr: addr, httpClient: httpClient}
 }
 
+const (
+	dstKZT = "KZT"
+)
+
 // FetchRates returns latest online rates for supported currencies.
 func (r *RBK) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.addr, nil)
@@ -77,7 +82,7 @@ func (r *RBK) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 	sellMap := make(map[string]string)
 
 	for _, it := range rr.Data.Online.Buy {
-		if it.Dst != "KZT" { // skip cross / metals
+		if it.Dst != dstKZT { // skip cross / metals
 			continue
 		}
 		if _, ok := supported[it.Src]; !ok {
@@ -86,7 +91,7 @@ func (r *RBK) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 		buyMap[it.Src] = it.Amount
 	}
 	for _, it := range rr.Data.Online.Sell {
-		if it.Dst != "KZT" {
+		if it.Dst != dstKZT {
 			continue
 		}
 		if _, ok := supported[it.Src]; !ok {
@@ -112,7 +117,7 @@ func (r *RBK) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) {
 		})
 	}
 	if len(rates) == 0 {
-		return nil, fmt.Errorf("no supported currency rates found")
+		return nil, errors.New("no supported currency rates found")
 	}
 	return rates, nil
 }

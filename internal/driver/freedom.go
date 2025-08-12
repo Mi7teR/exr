@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -64,7 +65,7 @@ func (f *Freedom) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	if !fr.Success {
-		return nil, fmt.Errorf("freedom api success false")
+		return nil, errors.New("freedom api success false")
 	}
 	if fr.Status != 200 && fr.Status != 0 { // some responses might omit status
 		return nil, fmt.Errorf("freedom api status %d", fr.Status)
@@ -89,7 +90,7 @@ func (f *Freedom) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error
 		})
 	}
 	if len(rates) == 0 {
-		return nil, fmt.Errorf("no supported currency rates found")
+		return nil, errors.New("no supported currency rates found")
 	}
 	return rates, nil
 }
