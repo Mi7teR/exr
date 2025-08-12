@@ -1,0 +1,164 @@
+package web
+
+import (
+    "fmt"
+)
+
+// Содержимое таба с универсальным отображением
+templ TabContent(banks []Bank, currency string) {
+    <div class="overflow-hidden">
+        <div class="mb-4 sm:mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-1">
+                if currency == "usd" {
+                    Курс доллара США к тенге
+                } else if currency == "eur" {
+                    Курс евро к тенге
+                } else if currency == "rub" {
+                    Курс рубля к тенге
+                }
+            </h2>
+            <p class="text-sm text-gray-600">
+                if currency == "usd" {
+                    Сколько тенге за 1 доллар США
+                } else if currency == "eur" {
+                    Сколько тенге за 1 евро
+                } else if currency == "rub" {
+                    Сколько тенге за 1 рубль
+                }
+            </p>
+        </div>
+
+        @UniversalRatesView(banks, currency)
+    </div>
+}
+
+// Универсальный компонент для отображения курсов (таблица на десктопе, карточки на мобильном)
+templ UniversalRatesView(banks []Bank, currency string) {
+    <div class="hidden sm:block overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Банк</th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Город</th>
+                    if currency == "usd" {
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Покупка USD</th>
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Продажа USD</th>
+                    } else if currency == "eur" {
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Покупка EUR</th>
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Продажа EUR</th>
+                    } else if currency == "rub" {
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Покупка RUB</th>
+                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Продажа RUB</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                for _, bank := range banks {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td class="py-4 px-4 font-medium text-gray-900">{ bank.Name }</td>
+                        <td class="py-4 px-4 text-gray-500">{ bank.Location }</td>
+                        if currency == "usd" {
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.USD.Buy, bank.Rates.USD.BuyChange)
+                            </td>
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.USD.Sell, bank.Rates.USD.SellChange)
+                            </td>
+                        } else if currency == "eur" {
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.EUR.Buy, bank.Rates.EUR.BuyChange)
+                            </td>
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.EUR.Sell, bank.Rates.EUR.SellChange)
+                            </td>
+                        } else if currency == "rub" {
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.RUB.Buy, bank.Rates.RUB.BuyChange)
+                            </td>
+                            <td class="text-right py-4 px-4">
+                                @RateWithIndicator(bank.Rates.RUB.Sell, bank.Rates.RUB.SellChange)
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+	<!-- Мобильные карточки (показаны только на мобильном) -->
+    <div class="block sm:hidden space-y-4">
+		for _, bank := range banks {
+			<div class="bg-white rounded-lg border border-gray-200 p-4">
+				<div class="flex justify-between items-start mb-3">
+					<div>
+						<h3 class="font-semibold text-gray-900">{ bank.Name }</h3>
+						<p class="text-sm text-gray-500">{ bank.Location }</p>
+					</div>
+				</div>
+				
+				<div class="grid grid-cols-2 gap-4">
+                    if currency == "usd" {
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Покупка USD</div>
+                            @RateWithIndicator(bank.Rates.USD.Buy, bank.Rates.USD.BuyChange)
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Продажа USD</div>
+                            @RateWithIndicator(bank.Rates.USD.Sell, bank.Rates.USD.SellChange)
+                        </div>
+                    } else if currency == "eur" {
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Покупка EUR</div>
+                            @RateWithIndicator(bank.Rates.EUR.Buy, bank.Rates.EUR.BuyChange)
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Продажа EUR</div>
+                            @RateWithIndicator(bank.Rates.EUR.Sell, bank.Rates.EUR.SellChange)
+                        </div>
+                    } else if currency == "rub" {
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Покупка RUB</div>
+                            @RateWithIndicator(bank.Rates.RUB.Buy, bank.Rates.RUB.BuyChange)
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Продажа RUB</div>
+                            @RateWithIndicator(bank.Rates.RUB.Sell, bank.Rates.RUB.SellChange)
+                        </div>
+                    }
+				</div>
+			</div>
+		}
+	</div>
+}
+
+// Компонент для отображения цены с индикатором изменения
+templ RateWithIndicator(rate float64, change float64) {
+    if rate > 0 {
+        <div class={ "inline-flex items-center px-2 py-1 rounded text-sm font-mono " + (func() string { 
+            if change > 0 { 
+                return "bg-green-50 text-green-800 border border-green-200" 
+            } else if change < 0 { 
+                return "bg-red-50 text-red-800 border border-red-200" 
+            } else { 
+                return "bg-gray-50 text-gray-800 border border-gray-200" 
+            } 
+        })() }>
+            <span class="font-semibold">{ fmt.Sprintf("%.2f", rate) }</span>
+            if change != 0 {
+                <div class="ml-1 flex items-center text-xs">
+                    if change > 0 {
+                        <span class="mr-0.5">↗</span>
+                        <span>+{ fmt.Sprintf("%.2f", change) }%</span>
+                    } else {
+                        <span class="mr-0.5">↘</span>
+                        <span>{ fmt.Sprintf("%.2f", change) }%</span>
+                    }
+                </div>
+            }
+        </div>
+    } else {
+        <span class="text-gray-400">—</span>
+    }
+}
+
+

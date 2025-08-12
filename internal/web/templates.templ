@@ -1,0 +1,131 @@
+package web
+
+// Главная страница с вкладками валют и кнопкой обновления (новая верстка)
+
+templ IndexPage(activeTab string) {
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Курсы валют</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <style>
+            .htmx-indicator { display: none; }
+            .htmx-request .htmx-indicator { display: inline; }
+            .htmx-request.htmx-indicator { display: inline; }
+        </style>
+        <script>
+            function setActiveTab(clickedOrName) {
+                const tabName = typeof clickedOrName === 'string' ? clickedOrName : clickedOrName.getAttribute('data-tab');
+                const tabButtons = document.querySelectorAll('.tab-button');
+                tabButtons.forEach(btn => {
+                    const isActive = btn.getAttribute('data-tab') === tabName;
+                    btn.classList.toggle('text-blue-600', isActive);
+                    btn.classList.toggle('border-b-2', isActive);
+                    btn.classList.toggle('border-blue-600', isActive);
+                    btn.classList.toggle('text-gray-600', !isActive);
+                });
+                const refreshBtn = document.getElementById('refresh-btn');
+                if (refreshBtn) refreshBtn.setAttribute('data-tab', tabName);
+            }
+
+
+
+            function getCurrentTabName() {
+                const active = document.querySelector('.tab-button.text-blue-600');
+                return active ? active.getAttribute('data-tab') : '{ activeTab }' || 'usd';
+            }
+
+            function refreshCurrentTab() {
+                const tab = getCurrentTabName();
+                const url = '/c/' + tab;
+                htmx.ajax('GET', url, { target: '#tab-content', swap: 'innerHTML', indicator: '#tab-loader' });
+            }
+
+            document.addEventListener('DOMContentLoaded', function(){
+                setActiveTab('{ activeTab }');
+                const ts = new Date().toLocaleString('ru-RU');
+                const el = document.getElementById('last-updated');
+                if (el) el.textContent = ts;
+            });
+
+            // Обновляем timestamp и синхронизируем кнопку обновления после подгрузки таба
+            document.addEventListener('htmx:afterSwap', function (e) {
+                if (e.target && e.target.id === 'tab-content') {
+                    const ts = new Date().toLocaleString('ru-RU');
+                    const el = document.getElementById('last-updated');
+                    if (el) el.textContent = ts;
+                }
+            });
+
+            // Синхронизация активного таба по ответу
+            document.addEventListener('htmx:afterRequest', function (event) {
+                if (!event.detail.xhr || !event.detail.xhr.responseURL) return;
+                const url = new URL(event.detail.xhr.responseURL, window.location.origin);
+                const pathMatch = url.pathname.match(/^\/c\/(\w+)/);
+                if (pathMatch) setActiveTab(pathMatch[1]);
+            });
+        </script>
+    </head>
+    <body class="bg-gray-50 min-h-screen py-8">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-0">Курсы валют Казахстана</h1>
+                <button id="refresh-btn" type="button"
+                        onclick={ templ.ComponentScript{ Call: "refreshCurrentTab()" } }
+                        class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <span>Обновить курсы</span>
+                </button>
+            </div>
+
+            <div id="currency-tabs" class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div class="border-b border-gray-200">
+                    <nav class="flex flex-wrap">
+                        @CurrencyTabs(activeTab)
+                    </nav>
+                </div>
+                <div class="p-3 sm:p-6">
+                    <div id="tab-loader" class="htmx-indicator flex items-center justify-center py-3">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                        <span class="ml-2 text-sm text-gray-600">Загрузка...</span>
+                    </div>
+                    <div id="tab-content" hx-get={ "/c/" + activeTab } hx-trigger="load" hx-swap="innerHTML">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span class="ml-3 text-gray-600">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center text-sm text-gray-500">Последнее обновление: <span id="last-updated" class="font-medium">—</span></div>
+        </div>
+    </body>
+    </html>
+}
+
+// Компоненты вкладок валют
+
+templ CurrencyTabs(activeTab string) {
+    <div id="tabs" class="w-full grid grid-cols-3">
+        @TabButton("usd", "КЗТ → USD", "USD", activeTab == "usd")
+        @TabButton("eur", "КЗТ → EUR", "EUR", activeTab == "eur")
+        @TabButton("rub", "КЗТ → RUB", "RUB", activeTab == "rub")
+    </div>
+}
+
+templ TabButton(tab, fullName, shortName string, isActive bool) {
+    <button
+        class={ "tab-button flex-1 py-3 sm:py-4 px-3 sm:px-6 text-center font-medium hover:text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base " + (func() string { if isActive { return "text-blue-600 border-b-2 border-blue-600" } else { return "text-gray-600" } })() }
+        onclick={ templ.ComponentScript{ Call: "(function(){ setActiveTab('" + tab + "'); htmx.ajax('GET','/c/" + tab + "',{target:'#tab-content',swap:'innerHTML',indicator:'#tab-loader'}); })()" } }
+        data-tab={ tab }
+        hx-push-url={ "/c/" + tab }
+    >
+        <span class="hidden sm:inline">{ fullName }</span>
+        <span class="sm:hidden">{ shortName }</span>
+    </button>
+}
+
+

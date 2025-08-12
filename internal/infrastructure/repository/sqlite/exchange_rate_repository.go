@@ -64,6 +64,25 @@ func (r *SQLiteExchangeRateRepository) AddExchangeRate(
 	return err
 }
 
+// GetLatestExchangeRate returns the most recent exchange rate for currency+source.
+func (r *SQLiteExchangeRateRepository) GetLatestExchangeRate(
+	ctx context.Context,
+	currencyCode, source string,
+) (*entity.ExchangeRate, error) {
+	q := `SELECT currency_code, buy, sell, source, created_at
+		FROM exchange_rates
+		WHERE currency_code = ? AND source = ?
+		ORDER BY created_at DESC LIMIT 1`
+	rates, err := r.queryRates(ctx, q, currencyCode, source)
+	if err != nil {
+		return nil, err
+	}
+	if len(rates) == 0 {
+		return nil, internalErrors.ErrNotFound
+	}
+	return rates[0], nil
+}
+
 // GetExchangeRates returns latest rates per currency+source in range with prev change.
 func (r *SQLiteExchangeRateRepository) GetExchangeRates(
 	ctx context.Context,

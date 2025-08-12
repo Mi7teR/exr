@@ -2,9 +2,11 @@ package exrate
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Mi7teR/exr/internal/entity"
+	internalErrors "github.com/Mi7teR/exr/internal/errors"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -34,6 +36,8 @@ type ExchangeRateRepository interface {
 	) ([]*entity.ExchangeRate, error)
 	// AddExchangeRate adds an exchange rate.
 	AddExchangeRate(ctx context.Context, exchangeRate *entity.ExchangeRate) error
+	// GetLatestExchangeRate returns the most recent exchange rate for currency+source.
+	GetLatestExchangeRate(ctx context.Context, currencyCode, source string) (*entity.ExchangeRate, error)
 }
 
 // ExchangeRateUsecase represents the usecase for exchange rates.
@@ -94,6 +98,7 @@ func (u *ExchangeRateUsecase) GetRates(
 func (u *ExchangeRateUsecase) AddRates(ctx context.Context) error {
 	g := new(errgroup.Group)
 	for _, driver := range u.drivers {
+		driver := driver // захватываем переменную для замыкания
 		g.Go(func() error {
 			rates, err := driver.FetchRates(ctx)
 			if err != nil {
@@ -101,6 +106,28 @@ func (u *ExchangeRateUsecase) AddRates(ctx context.Context) error {
 			}
 
 			for _, rate := range rates {
+				// Проверяем последний курс для этой валюты и источника
+				lastRate, err := u.repo.GetLatestExchangeRate(ctx, rate.CurrencyCode, rate.Source)
+				if err != nil {
+					// Если курс не найден (первый запуск), сохраняем новый
+					if errors.Is(err, internalErrors.ErrNotFound) {
+						err = u.repo.AddExchangeRate(ctx, rate)
+						if err != nil {
+							return err
+						}
+						continue
+					}
+					// Другие ошибки просто возвращаем
+					return err
+				}
+
+				// Сравниваем курсы - если одинаковые, пропускаем сохранение
+				if lastRate.Buy == rate.Buy && lastRate.Sell == rate.Sell {
+					// Курсы не изменились, пропускаем
+					continue
+				}
+
+				// Курсы изменились, сохраняем новый
 				err = u.repo.AddExchangeRate(ctx, rate)
 				if err != nil {
 					return err

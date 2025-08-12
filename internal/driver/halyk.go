@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,23 +17,66 @@ import (
 // Halyk driver fetches exchange rates from Halyk Bank API.
 // Default endpoint: https://back.halykbank.kz/common/currency-history
 // We use section "privatePersons" and pick supported currencies (USD, EUR, RUB) vs KZT.
-// Response contains history keyed by index (0 - today, 3 - older). We take index 0 only.
+// Response may contain history either as a map indexed by strings ("0", "1", ...) or as an array.
 
 type Halyk struct {
 	addr       string
 	httpClient HTTPClient
 }
 
+type halykHistoryEntry struct {
+	Date           string               `json:"date"`
+	PrivatePersons map[string]halykPair `json:"privatePersons"`
+	LegalPersons   map[string]halykPair `json:"legalPersons"`
+	Cards          map[string]halykPair `json:"cards"`
+	CrossCourses   map[string]halykPair `json:"crossCourses"`
+}
+
+type currencyHistory struct {
+	byIndex map[string]halykHistoryEntry
+	list    []halykHistoryEntry
+}
+
+func (c *currencyHistory) UnmarshalJSON(b []byte) error {
+	bb := bytes.TrimSpace(b)
+	if len(bb) == 0 {
+		return nil
+	}
+	switch bb[0] {
+	case '{':
+		var m map[string]halykHistoryEntry
+		if err := json.Unmarshal(bb, &m); err != nil {
+			return err
+		}
+		c.byIndex = m
+	case '[':
+		var l []halykHistoryEntry
+		if err := json.Unmarshal(bb, &l); err != nil {
+			return err
+		}
+		c.list = l
+	default:
+		return fmt.Errorf("unexpected currencyHistory JSON")
+	}
+	return nil
+}
+
+func (c currencyHistory) Latest() (halykHistoryEntry, bool) {
+	if c.byIndex != nil {
+		if e, ok := c.byIndex["0"]; ok {
+			return e, true
+		}
+	}
+	if len(c.list) > 0 {
+		return c.list[0], true
+	}
+	return halykHistoryEntry{}, false
+}
+
 type halykResponse struct {
 	Result bool `json:"result"`
 	Data   struct {
-		CurrencyHistory map[string]struct {
-			Date           string               `json:"date"`
-			PrivatePersons map[string]halykPair `json:"privatePersons"`
-			LegalPersons   map[string]halykPair `json:"legalPersons"`
-			Cards          map[string]halykPair `json:"cards"`
-			CrossCourses   map[string]halykPair `json:"crossCourses"`
-		} `json:"currencyHistory"`
+		CurrencyHistory currencyHistory `json:"currencyHistory"`
 	} `json:"data"`
 }
 
@@ -74,14 +118,10 @@ func (h *Halyk) FetchRates(ctx context.Context) ([]*entity.ExchangeRate, error) 
 	if !r.Result {
 		return nil, errors.New("result flag false")
 	}
-	if len(r.Data.CurrencyHistory) == 0 {
-		return nil, errors.New("empty currency history")
-	}
 
-	// take index "0" (latest)
-	latest, ok := r.Data.CurrencyHistory["0"]
+	latest, ok := r.Data.CurrencyHistory.Latest()
 	if !ok {
-		return nil, errors.New("no latest index 0 in currencyHistory")
+		return nil, errors.New("empty currency history")
 	}
 
 	supported := map[string]struct{}{"USD": {}, "EUR": {}, "RUB": {}}
