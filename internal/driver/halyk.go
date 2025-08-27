@@ -56,7 +56,7 @@ func (c *currencyHistory) UnmarshalJSON(b []byte) error {
 		}
 		c.list = l
 	default:
-		return fmt.Errorf("unexpected currencyHistory JSON")
+		return errors.New("unexpected currencyHistory JSON")
 	}
 	return nil
 }

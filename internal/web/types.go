@@ -1,3 +1,4 @@
+//nolint:cyclop // Generated templ components in this package inflate average complexity; business code here is simple.
 package web
 
 type CurrencyRate struct {
@@ -14,7 +15,6 @@ type Rates struct {
 }
 
 type Bank struct {
-	Name     string
-	Location string
-	Rates    Rates
+	Name  string
+	Rates Rates
 }

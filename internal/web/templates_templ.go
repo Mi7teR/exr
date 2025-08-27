@@ -96,15 +96,15 @@ func CurrencyTabs(activeTab string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = TabButton("usd", "КЗТ → USD", "USD", activeTab == "usd").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = TabButton("usd", "KZT → USD", "USD", activeTab == "usd").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = TabButton("eur", "КЗТ → EUR", "EUR", activeTab == "eur").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = TabButton("eur", "KZT → EUR", "EUR", activeTab == "eur").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = TabButton("rub", "КЗТ → RUB", "RUB", activeTab == "rub").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = TabButton("rub", "KZT → RUB", "RUB", activeTab == "rub").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

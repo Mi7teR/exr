@@ -39,7 +39,6 @@ templ UniversalRatesView(banks []Bank, currency string) {
             <thead>
                 <tr class="border-b border-gray-200">
                     <th class="text-left py-3 px-4 font-semibold text-gray-700">Банк</th>
-                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Город</th>
                     if currency == "usd" {
                         <th class="text-right py-3 px-4 font-semibold text-gray-700">Покупка USD</th>
                         <th class="text-right py-3 px-4 font-semibold text-gray-700">Продажа USD</th>
@@ -56,7 +55,6 @@ templ UniversalRatesView(banks []Bank, currency string) {
                 for _, bank := range banks {
                     <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                         <td class="py-4 px-4 font-medium text-gray-900">{ bank.Name }</td>
-                        <td class="py-4 px-4 text-gray-500">{ bank.Location }</td>
                         if currency == "usd" {
                             <td class="text-right py-4 px-4">
                                 @RateWithIndicator(bank.Rates.USD.Buy, bank.Rates.USD.BuyChange)
@@ -92,7 +90,6 @@ templ UniversalRatesView(banks []Bank, currency string) {
 				<div class="flex justify-between items-start mb-3">
 					<div>
 						<h3 class="font-semibold text-gray-900">{ bank.Name }</h3>
-						<p class="text-sm text-gray-500">{ bank.Location }</p>
 					</div>
 				</div>
 				

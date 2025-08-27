@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Mi7teR/exr/internal/driver"
 	"github.com/Mi7teR/exr/internal/infrastructure/httpclient"
@@ -26,9 +31,10 @@ func main() {
 	}
 	defer db.Close()
 
-	repo, err := sqlite.NewSQLiteExchangeRateRepository(db)
-	if err != nil {
-		log.Fatalf("migrate repo: %v", err)
+	repo, repoErr := sqlite.NewSQLiteExchangeRateRepository(db)
+	if repoErr != nil {
+		_ = db.Close()
+		log.Fatalf("migrate repo: %v", repoErr)
 	}
 
 	// HTTP client
@@ -50,8 +56,25 @@ func main() {
 	addr := getenv("EXR_HTTP_ADDR", ":8080")
 	server := webserver.NewServer(l, uc)
 	l.Info("starting server", "addr", addr)
-	if err := server.Start(addr); err != nil {
-		log.Fatal(err)
+
+	// Start server in a goroutine to enable graceful shutdown.
+	go func() {
+		if err := server.Start(addr); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server start: %v", err)
+		}
+	}()
+
+	// Wait for termination signal.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+	l.Info("shutdown signal received")
+
+	// Attempt graceful shutdown with timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 	"github.com/Mi7teR/exr/internal/web"
 )
 
-// ExchangeRateService определяет интерфейс для работы с курсами валют
+// ExchangeRateService определяет интерфейс для работы с курсами валют.
 type ExchangeRateService interface {
 	GetRates(ctx context.Context, filter *exrate.ExchangeRateFilter) ([]*entity.ExchangeRate, error)
 	AddRates(ctx context.Context) error
@@ -25,11 +25,24 @@ type Server struct {
 	l      logger.Logger
 	uc     ExchangeRateService
 	router *chi.Mux
+	httpS  *http.Server
+	bgCtx  context.Context
+	cancel context.CancelFunc
 }
 
 func NewServer(l logger.Logger, uc ExchangeRateService) *Server {
 	return &Server{l: l, uc: uc}
 }
+
+const (
+	defaultCurrency      = "usd"
+	currencyUSD          = "usd"
+	currencyEUR          = "eur"
+	currencyRUB          = "rub"
+	refreshInterval      = 30 * time.Minute
+	refreshTimeout       = 25 * time.Second
+	percentageMultiplier = 100.0
+)
 
 func (s *Server) createRouter() *chi.Mux {
 	router := chi.NewRouter()
@@ -37,7 +50,7 @@ func (s *Server) createRouter() *chi.Mux {
 	// ЧПУ маршруты
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = web.IndexPage("usd").Render(r.Context(), w)
+		_ = web.IndexPage(defaultCurrency).Render(r.Context(), w)
 	})
 	router.Get("/c/{currency}", s.handleCurrencyPage)
 
@@ -47,13 +60,25 @@ func (s *Server) createRouter() *chi.Mux {
 func (s *Server) Start(addr string) error {
 	s.router = s.createRouter()
 
-	// Фоновое обновление каждые 30 минут
-	go s.startBackgroundRefresh()
+	// Контекст для фонового обновления и graceful shutdown.
+	s.bgCtx, s.cancel = context.WithCancel(context.Background())
 
-	return http.ListenAndServe(addr, s.router)
+	// Фоновое обновление через заданный интервал.
+	go s.startBackgroundRefresh(s.bgCtx)
+
+	s.httpS = &http.Server{
+		Addr:              addr,
+		Handler:           s.router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	return s.httpS.ListenAndServe()
 }
 
-// GetRouter возвращает настроенный роутер для тестирования
+// GetRouter возвращает настроенный роутер для тестирования.
 func (s *Server) GetRouter() http.Handler {
 	if s.router == nil {
 		s.router = s.createRouter()
@@ -61,18 +86,34 @@ func (s *Server) GetRouter() http.Handler {
 	return s.router
 }
 
-func (s *Server) startBackgroundRefresh() {
-	// первичная загрузка
-	s.refreshOnce()
-	ticker := time.NewTicker(30 * time.Minute)
+// Shutdown выполняет graceful shutdown HTTP-сервера и фоновых задач.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	if s.httpS != nil {
+		return s.httpS.Shutdown(ctx)
+	}
+	return nil
+}
+
+func (s *Server) startBackgroundRefresh(ctx context.Context) {
+	// Первичная загрузка.
+	s.refreshOnce(ctx)
+	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
-	for range ticker.C {
-		s.refreshOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.refreshOnce(ctx)
+		}
 	}
 }
 
-func (s *Server) refreshOnce() {
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+func (s *Server) refreshOnce(parent context.Context) {
+	ctx, cancel := context.WithTimeout(parent, refreshTimeout)
 	defer cancel()
 	if err := s.uc.AddRates(ctx); err != nil {
 		s.l.Warn("background refresh failed", "err", err)
@@ -82,7 +123,7 @@ func (s *Server) refreshOnce() {
 func (s *Server) handleCurrencyPage(w http.ResponseWriter, r *http.Request) {
 	currency := chi.URLParam(r, "currency")
 	if currency == "" {
-		currency = "usd"
+		currency = defaultCurrency
 	}
 
 	// Если это HTMX-запрос, возвращаем только содержимое таба
@@ -112,107 +153,97 @@ func (s *Server) gatherBanks(ctx context.Context, currency string) ([]web.Bank, 
 	for _, r := range rates {
 		b, ok := banksMap[r.Source]
 		if !ok {
-			b = &web.Bank{Name: r.Source, Location: "KZ"}
+			b = &web.Bank{Name: r.Source}
 			banksMap[r.Source] = b
 		}
-
-		// Парсим курсы покупки и продажи
-		var buyRate, sellRate float64
-		if r.Buy != "" {
-			_, _ = fmt.Sscan(r.Buy, &buyRate)
-		}
-		if r.Sell != "" {
-			_, _ = fmt.Sscan(r.Sell, &sellRate)
-		}
-
-		// Заполняем курсы по валютам
-		switch r.CurrencyCode {
-		case "USD":
-			if buyRate > 0 {
-				b.Rates.USD.Buy = buyRate
-				// Вычисляем процентное изменение для покупки
-				b.Rates.USD.BuyChange = (r.BuyChangePrev / buyRate) * 100
-			}
-			if sellRate > 0 {
-				b.Rates.USD.Sell = sellRate
-				// Вычисляем процентное изменение для продажи
-				b.Rates.USD.SellChange = (r.SellChangePrev / sellRate) * 100
-			}
-		case "EUR":
-			if buyRate > 0 {
-				b.Rates.EUR.Buy = buyRate
-				b.Rates.EUR.BuyChange = (r.BuyChangePrev / buyRate) * 100
-			}
-			if sellRate > 0 {
-				b.Rates.EUR.Sell = sellRate
-				b.Rates.EUR.SellChange = (r.SellChangePrev / sellRate) * 100
-			}
-		case "RUB":
-			if buyRate > 0 {
-				b.Rates.RUB.Buy = buyRate
-				b.Rates.RUB.BuyChange = (r.BuyChangePrev / buyRate) * 100
-			}
-			if sellRate > 0 {
-				b.Rates.RUB.Sell = sellRate
-				b.Rates.RUB.SellChange = (r.SellChangePrev / sellRate) * 100
-			}
-		}
+		buyRate, sellRate := parseBuySell(r)
+		updateBankRates(b, r, buyRate, sellRate)
 	}
 
 	out := make([]web.Bank, 0, len(banksMap))
 	for _, b := range banksMap {
-		// Добавляем только банки, у которых есть хотя бы один курс для запрошенной валюты
-		switch currency {
-		case "usd":
-			if b.Rates.USD.Buy == 0 && b.Rates.USD.Sell == 0 {
-				continue
-			}
-		case "eur":
-			if b.Rates.EUR.Buy == 0 && b.Rates.EUR.Sell == 0 {
-				continue
-			}
-		case "rub":
-			if b.Rates.RUB.Buy == 0 && b.Rates.RUB.Sell == 0 {
-				continue
-			}
+		if shouldIncludeBank(b, currency) {
+			out = append(out, *b)
 		}
-		out = append(out, *b)
 	}
 
-	// сортируем по возрастанию курса покупки выбранной валюты
+	// Сортируем по возрастанию курса покупки выбранной валюты.
 	sort.Slice(out, func(i, j int) bool {
 		switch currency {
-		case "usd":
-			// Сортируем по курсу покупки, если он есть, иначе по курсу продажи
-			iBuy, jBuy := out[i].Rates.USD.Buy, out[j].Rates.USD.Buy
-			if iBuy == 0 {
-				iBuy = out[i].Rates.USD.Sell
-			}
-			if jBuy == 0 {
-				jBuy = out[j].Rates.USD.Sell
-			}
+		case currencyUSD:
+			iBuy, jBuy := fallbackBuy(out[i].Rates.USD.Buy, out[i].Rates.USD.Sell), fallbackBuy(out[j].Rates.USD.Buy, out[j].Rates.USD.Sell)
 			return iBuy < jBuy
-		case "eur":
-			iBuy, jBuy := out[i].Rates.EUR.Buy, out[j].Rates.EUR.Buy
-			if iBuy == 0 {
-				iBuy = out[i].Rates.EUR.Sell
-			}
-			if jBuy == 0 {
-				jBuy = out[j].Rates.EUR.Sell
-			}
+		case currencyEUR:
+			iBuy, jBuy := fallbackBuy(out[i].Rates.EUR.Buy, out[i].Rates.EUR.Sell), fallbackBuy(out[j].Rates.EUR.Buy, out[j].Rates.EUR.Sell)
 			return iBuy < jBuy
-		case "rub":
-			iBuy, jBuy := out[i].Rates.RUB.Buy, out[j].Rates.RUB.Buy
-			if iBuy == 0 {
-				iBuy = out[i].Rates.RUB.Sell
-			}
-			if jBuy == 0 {
-				jBuy = out[j].Rates.RUB.Sell
-			}
+		case currencyRUB:
+			iBuy, jBuy := fallbackBuy(out[i].Rates.RUB.Buy, out[i].Rates.RUB.Sell), fallbackBuy(out[j].Rates.RUB.Buy, out[j].Rates.RUB.Sell)
 			return iBuy < jBuy
 		default:
 			return false
 		}
 	})
 	return out, nil
+}
+
+func parseBuySell(r *entity.ExchangeRate) (buyRate, sellRate float64) {
+	if r.Buy != "" {
+		_, _ = fmt.Sscan(r.Buy, &buyRate)
+	}
+	if r.Sell != "" {
+		_, _ = fmt.Sscan(r.Sell, &sellRate)
+	}
+	return buyRate, sellRate
+}
+
+func updateBankRates(b *web.Bank, r *entity.ExchangeRate, buyRate, sellRate float64) {
+	switch r.CurrencyCode {
+	case "USD":
+		if buyRate > 0 {
+			b.Rates.USD.Buy = buyRate
+			b.Rates.USD.BuyChange = (r.BuyChangePrev / buyRate) * percentageMultiplier
+		}
+		if sellRate > 0 {
+			b.Rates.USD.Sell = sellRate
+			b.Rates.USD.SellChange = (r.SellChangePrev / sellRate) * percentageMultiplier
+		}
+	case "EUR":
+		if buyRate > 0 {
+			b.Rates.EUR.Buy = buyRate
+			b.Rates.EUR.BuyChange = (r.BuyChangePrev / buyRate) * percentageMultiplier
+		}
+		if sellRate > 0 {
+			b.Rates.EUR.Sell = sellRate
+			b.Rates.EUR.SellChange = (r.SellChangePrev / sellRate) * percentageMultiplier
+		}
+	case "RUB":
+		if buyRate > 0 {
+			b.Rates.RUB.Buy = buyRate
+			b.Rates.RUB.BuyChange = (r.BuyChangePrev / buyRate) * percentageMultiplier
+		}
+		if sellRate > 0 {
+			b.Rates.RUB.Sell = sellRate
+			b.Rates.RUB.SellChange = (r.SellChangePrev / sellRate) * percentageMultiplier
+		}
+	}
+}
+
+func shouldIncludeBank(b *web.Bank, currency string) bool {
+	switch currency {
+	case currencyUSD:
+		return !(b.Rates.USD.Buy == 0 && b.Rates.USD.Sell == 0)
+	case currencyEUR:
+		return !(b.Rates.EUR.Buy == 0 && b.Rates.EUR.Sell == 0)
+	case currencyRUB:
+		return !(b.Rates.RUB.Buy == 0 && b.Rates.RUB.Sell == 0)
+	default:
+		return false
+	}
+}
+
+func fallbackBuy(buy, sell float64) float64 {
+	if buy == 0 {
+		return sell
+	}
+	return buy
 }

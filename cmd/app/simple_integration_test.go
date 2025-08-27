@@ -98,7 +98,7 @@ func TestSimpleIntegration_DatabaseOperations(t *testing.T) {
 	t.Logf("Records in database: %d", recordCount)
 
 	// Попробуем простой запрос
-	rows, err := db.Query("SELECT currency_code, buy, sell, source FROM exchange_rates")
+    rows, err := db.Query("SELECT currency_code, buy, sell, source FROM exchange_rates")
 	if err != nil {
 		t.Fatalf("Failed to query records: %v", err)
 	}
@@ -113,14 +113,19 @@ func TestSimpleIntegration_DatabaseOperations(t *testing.T) {
 		t.Logf("Record: %s %s %s %s", curr, buy, sell, source)
 	}
 
-	// Попробуем простой запрос сначала
-	simpleQ := `SELECT currency_code, buy, sell, source, created_at FROM exchange_rates WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC`
+    // Попробуем простой запрос сначала
+    simpleQ := `
+        SELECT currency_code, buy, sell, source, created_at
+        FROM exchange_rates
+        WHERE created_at BETWEEN ? AND ?
+        ORDER BY created_at DESC
+    `
 
 	startDate := time.Unix(0, 0).UTC()
 	endDate := time.Now().UTC()
 	t.Logf("Query date range: %v to %v", startDate, endDate)
 
-	rows2, err := db.Query(simpleQ, startDate, endDate)
+    rows2, err := db.Query(simpleQ, startDate, endDate)
 	if err != nil {
 		t.Fatalf("Failed to execute manual query: %v", err)
 	}
@@ -138,7 +143,13 @@ func TestSimpleIntegration_DatabaseOperations(t *testing.T) {
 		t.Logf("Simple query result: %s %s %s %s %v", currCode, buy, sell, source, createdAt)
 	}
 
-	t.Logf("Manual query returned %d rows", rowCount)
+    if err := rows.Err(); err != nil {
+        t.Fatalf("rows error: %v", err)
+    }
+    if err := rows2.Err(); err != nil {
+        t.Fatalf("rows2 error: %v", err)
+    }
+    t.Logf("Manual query returned %d rows", rowCount)
 
 	// Тестируем получение всех курсов
 	rates, err := repo.GetExchangeRates(context.Background(), time.Time{}, time.Time{})

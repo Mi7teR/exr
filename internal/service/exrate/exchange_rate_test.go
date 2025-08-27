@@ -10,7 +10,7 @@ import (
 	internalErrors "github.com/Mi7teR/exr/internal/errors"
 )
 
-// mockRepository реализует интерфейс ExchangeRateRepository для тестов
+// mockRepository реализует интерфейс ExchangeRateRepository для тестов.
 type mockRepository struct {
 	getRatesFunc                        func(ctx context.Context, startDate, endDate time.Time) ([]*entity.ExchangeRate, error)
 	getRatesByCurrencyCodeFunc          func(ctx context.Context, currencyCode string, startDate, endDate time.Time) ([]*entity.ExchangeRate, error)
@@ -62,7 +62,7 @@ func (m *mockRepository) GetLatestExchangeRate(ctx context.Context, currencyCode
 	return nil, internalErrors.ErrNotFound
 }
 
-// mockDriver реализует интерфейс Driver для тестов
+// mockDriver реализует интерфейс Driver для тестов.
 type mockDriver struct {
 	fetchRatesFunc func(ctx context.Context) ([]*entity.ExchangeRate, error)
 }

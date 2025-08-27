@@ -12,7 +12,7 @@ import (
 	"github.com/Mi7teR/exr/internal/service/exrate"
 )
 
-// mockLogger реализует интерфейс logger.Logger для тестов
+// mockLogger реализует интерфейс logger.Logger для тестов.
 type mockLogger struct{}
 
 func (m *mockLogger) Debug(msg string, args ...any)  {}
@@ -21,7 +21,7 @@ func (m *mockLogger) Warn(msg string, args ...any)   {}
 func (m *mockLogger) Error(msg string, args ...any)  {}
 func (m *mockLogger) With(args ...any) logger.Logger { return m }
 
-// mockExchangeRateService реализует интерфейс ExchangeRateService для тестов
+// mockExchangeRateService реализует интерфейс ExchangeRateService для тестов.
 type mockExchangeRateService struct {
 	getRatesFunc func(ctx context.Context, filter *exrate.ExchangeRateFilter) ([]*entity.ExchangeRate, error)
 	addRatesFunc func(ctx context.Context) error
@@ -93,7 +93,7 @@ func TestServer_HandleCurrencyPage_FullPage(t *testing.T) {
 	server.setupRouter()
 
 	// Тест GET /c/usd (полная страница)
-	req, err := http.NewRequest("GET", "/c/usd", nil)
+	req, err := http.NewRequest(http.MethodGet, "/c/usd", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestServer_HandleCurrencyPage_HTMXRequest(t *testing.T) {
 	server.setupRouter()
 
 	// Тест HTMX запроса
-	req, err := http.NewRequest("GET", "/c/usd", nil)
+	req, err := http.NewRequest(http.MethodGet, "/c/usd", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,9 +224,6 @@ func TestServer_GatherBanks(t *testing.T) {
 		if bank.Name == "" {
 			t.Error("Bank name should not be empty")
 		}
-		if bank.Location != "KZ" {
-			t.Errorf("Expected bank location to be KZ, got %s", bank.Location)
-		}
 		if bank.Rates.USD.Buy <= 0 {
 			t.Error("USD buy rate should be greater than 0")
 		}
@@ -252,7 +249,7 @@ func TestServer_GatherBanks(t *testing.T) {
 	}
 }
 
-// Вспомогательная функция для настройки роутера в тестах
+// Вспомогательная функция для настройки роутера в тестах.
 func (s *Server) setupRouter() {
 	if s.router != nil {
 		return
@@ -266,7 +263,7 @@ func BenchmarkServer_GatherBanks(b *testing.B) {
 	sources := []string{"Kaspi", "Halyk", "Freedom", "RBK", "HomeKZ", "NBRK"}
 	currencies := []string{"USD", "EUR", "RUB"}
 
-	for i := 0; i < 100; i++ {
+	for i := range mockRates {
 		mockRates[i] = &entity.ExchangeRate{
 			CurrencyCode:   currencies[i%len(currencies)],
 			Buy:            "490.50",
@@ -288,7 +285,7 @@ func BenchmarkServer_GatherBanks(b *testing.B) {
 	server := NewServer(logger, service)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, err := server.gatherBanks(context.Background(), "usd")
 		if err != nil {
 			b.Fatal(err)

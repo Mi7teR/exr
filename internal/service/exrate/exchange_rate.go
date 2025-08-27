@@ -97,49 +97,38 @@ func (u *ExchangeRateUsecase) GetRates(
 
 func (u *ExchangeRateUsecase) AddRates(ctx context.Context) error {
 	g := new(errgroup.Group)
-	for _, driver := range u.drivers {
-		driver := driver // захватываем переменную для замыкания
+	for _, d := range u.drivers {
+		driverCopy := d
 		g.Go(func() error {
-			rates, err := driver.FetchRates(ctx)
-			if err != nil {
-				return err
-			}
-
-			for _, rate := range rates {
-				// Проверяем последний курс для этой валюты и источника
-				lastRate, err := u.repo.GetLatestExchangeRate(ctx, rate.CurrencyCode, rate.Source)
-				if err != nil {
-					// Если курс не найден (первый запуск), сохраняем новый
-					if errors.Is(err, internalErrors.ErrNotFound) {
-						err = u.repo.AddExchangeRate(ctx, rate)
-						if err != nil {
-							return err
-						}
-						continue
-					}
-					// Другие ошибки просто возвращаем
-					return err
-				}
-
-				// Сравниваем курсы - если одинаковые, пропускаем сохранение
-				if lastRate.Buy == rate.Buy && lastRate.Sell == rate.Sell {
-					// Курсы не изменились, пропускаем
-					continue
-				}
-
-				// Курсы изменились, сохраняем новый
-				err = u.repo.AddExchangeRate(ctx, rate)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
+			return u.fetchAndStore(ctx, driverCopy)
 		})
 	}
+	return g.Wait()
+}
 
-	if err := g.Wait(); err != nil {
+func (u *ExchangeRateUsecase) fetchAndStore(ctx context.Context, d Driver) error {
+	rates, fetchErr := d.FetchRates(ctx)
+	if fetchErr != nil {
+		return fetchErr
+	}
+	for _, rate := range rates {
+		if err := u.upsertIfChanged(ctx, rate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *ExchangeRateUsecase) upsertIfChanged(ctx context.Context, rate *entity.ExchangeRate) error {
+	lastRate, err := u.repo.GetLatestExchangeRate(ctx, rate.CurrencyCode, rate.Source)
+	if err != nil {
+		if errors.Is(err, internalErrors.ErrNotFound) {
+			return u.repo.AddExchangeRate(ctx, rate)
+		}
 		return err
 	}
-
-	return nil
+	if lastRate.Buy == rate.Buy && lastRate.Sell == rate.Sell {
+		return nil
+	}
+	return u.repo.AddExchangeRate(ctx, rate)
 }
