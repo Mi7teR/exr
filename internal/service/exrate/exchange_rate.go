@@ -58,6 +58,10 @@ func (u *ExchangeRateUsecase) GetRates(
 	ctx context.Context,
 	filter *ExchangeRateFilter,
 ) ([]*entity.ExchangeRate, error) {
+	if filter == nil {
+		filter = &ExchangeRateFilter{}
+	}
+
 	var rates []*entity.ExchangeRate
 	var err error
 
@@ -92,7 +96,13 @@ func (u *ExchangeRateUsecase) GetRates(
 		)
 	}
 
-	return rates, err
+	if err != nil {
+		if errors.Is(err, internalErrors.ErrNotFound) {
+			return []*entity.ExchangeRate{}, nil
+		}
+		return nil, err
+	}
+	return rates, nil
 }
 
 func (u *ExchangeRateUsecase) AddRates(ctx context.Context) error {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -48,34 +47,32 @@ func TestRBK_FetchRates(t *testing.T) {
 	baseResp.Data.Online.Date = time.Now().Format("2006-01-02")
 
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(baseResp)
-		}))
-		defer server.Close()
+		})
 
-		d := driver.NewRBK(server.URL, server.Client())
+		d := driver.NewRBK("http://mock", cli)
 		rates, err := d.FetchRates(context.Background())
 		require.NoError(t, err)
 		require.Len(t, rates, 3)
 	})
 
 	t.Run("non 200", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
-		}))
-		defer server.Close()
+		})
 
-		d := driver.NewRBK(server.URL, server.Client())
+		d := driver.NewRBK("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("{"))
-		}))
-		defer server.Close()
-		d := driver.NewRBK(server.URL, server.Client())
+		})
+		d := driver.NewRBK("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
@@ -83,11 +80,10 @@ func TestRBK_FetchRates(t *testing.T) {
 	t.Run("api error", func(t *testing.T) {
 		resp := baseResp
 		resp.Error = 1
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-		d := driver.NewRBK(server.URL, server.Client())
+		})
+		d := driver.NewRBK("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
@@ -96,11 +92,10 @@ func TestRBK_FetchRates(t *testing.T) {
 		resp := baseResp
 		resp.Data.Online.Sell = resp.Data.Online.Sell[:1] // только USD
 		resp.Data.Online.Buy = resp.Data.Online.Buy[1:]   // USD buy убрали
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-		d := driver.NewRBK(server.URL, server.Client())
+		})
+		d := driver.NewRBK("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})

@@ -3,8 +3,10 @@ package driver
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Mi7teR/exr/internal/entity"
@@ -124,13 +126,12 @@ func TestNBRK_FetchRates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(test.responseStatus)
 				_, _ = w.Write([]byte(test.responseBody))
-			}))
-			defer server.Close()
+			})
 
-			nbrk := NewNBRK(server.URL, server.Client())
+			nbrk := NewNBRK("http://mock", cli)
 			ctx := context.Background()
 
 			rates, err := nbrk.FetchRates(ctx)
@@ -142,5 +143,27 @@ func TestNBRK_FetchRates(t *testing.T) {
 				assert.Equal(t, test.expectedRates, rates)
 			}
 		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newTestHTTPClient(t *testing.T, handler http.HandlerFunc) *http.Client {
+	t.Helper()
+	return &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+			res := rr.Result()
+			res.Request = req
+			if res.Body == nil {
+				res.Body = io.NopCloser(strings.NewReader(""))
+			}
+			return res, nil
+		}),
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -43,17 +42,17 @@ func TestLogRoundTripper_RoundTrip(t *testing.T) {
 
 	mockLogger := mocks.NewMockLogger(ctrl)
 
-	// Set up a test server to handle the HTTP request
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer testServer.Close()
-
-	// Create the LogRoundTripper with a default transport
-	originalTransport := http.DefaultTransport
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			Status:     "200 OK",
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Request:    req,
+		}, nil
+	})
 	lrt := &LogRoundTripper{
 		l:         mockLogger,
-		transport: originalTransport,
+		transport: transport,
 	}
 
 	// Set up expectations on the mock logger
@@ -71,7 +70,7 @@ func TestLogRoundTripper_RoundTrip(t *testing.T) {
 	}
 
 	// Perform the HTTP request
-	_, err := client.Get(testServer.URL)
+	_, err := client.Get("http://example.com")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -148,4 +147,10 @@ func TestLogRoundTripper_RoundTrip_Error_WithResp(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

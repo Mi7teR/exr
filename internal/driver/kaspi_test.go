@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -95,7 +94,7 @@ func TestKaspi_FetchRates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(test.responseStatus)
 				if test.name == "Invalid JSON response" {
 					_, _ = w.Write([]byte("{invalid json"))
@@ -103,10 +102,9 @@ func TestKaspi_FetchRates(t *testing.T) {
 					responseBytes, _ := json.Marshal(test.responseBody)
 					_, _ = w.Write(responseBytes)
 				}
-			}))
-			defer server.Close()
+			})
 
-			kaspi := driver.NewKaspi(server.URL, server.Client())
+			kaspi := driver.NewKaspi("http://mock", cli)
 			ctx := context.Background()
 
 			rates, err := kaspi.FetchRates(ctx)

@@ -177,7 +177,7 @@ func (r *SQLiteExchangeRateRepository) queryRates(
 
 	var out []*entity.ExchangeRate
 	for rows.Next() {
-		var rate entity.ExchangeRate
+		rate := new(entity.ExchangeRate)
 		if err = rows.Scan(
 			&rate.CurrencyCode,
 			&rate.Buy,
@@ -187,7 +187,7 @@ func (r *SQLiteExchangeRateRepository) queryRates(
 		); err != nil {
 			return nil, err
 		}
-		out = append(out, &rate)
+		out = append(out, rate)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(
 
 	var out []*entity.ExchangeRate
 	for rows.Next() {
-		var rate entity.ExchangeRate
+		rate := new(entity.ExchangeRate)
 		var prevBuy, prevSell sql.NullString
 		if err = rows.Scan(
 			&rate.CurrencyCode,
@@ -227,7 +227,7 @@ func (r *SQLiteExchangeRateRepository) queryRatesWithPrev(
 		// compute changes
 		rate.BuyChangePrev = diff(rate.Buy, prevBuy)
 		rate.SellChangePrev = diff(rate.Sell, prevSell)
-		out = append(out, &rate)
+		out = append(out, rate)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err

@@ -30,6 +30,8 @@ func main() {
 		log.Fatalf("open db: %v", err)
 	}
 	defer db.Close()
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	repo, repoErr := sqlite.NewSQLiteExchangeRateRepository(db)
 	if repoErr != nil {
@@ -46,7 +48,7 @@ func main() {
 		"Halyk":   driver.NewHalyk("https://back.halykbank.kz/common/currency-history", cli),
 		"Freedom": driver.NewFreedom("https://bankffin.kz/api/exchange-rates/getRates", cli),
 		"RBK":     driver.NewRBK("https://backend.bankrbk.kz/api/v1/modules/exchange_rates/data", cli),
-		"HomeKZ":  driver.NewHome("https://home.kz/api/public/getCurrency", cli),
+		"HomeKZ":  driver.NewHome("https://home.kz/strapi/api/getCurrency?locale=ru", cli),
 		"NBRK":    driver.NewNBRK("https://nationalbank.kz/rss/rates_all.xml", cli),
 	}
 

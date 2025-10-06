@@ -190,21 +190,22 @@ func TestExchangeRateUsecase_GetRates(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
 			repo := &mockRepository{}
-			if tt.setupMock != nil {
-				tt.setupMock(repo)
+			if tc.setupMock != nil {
+				tc.setupMock(repo)
 			}
 
 			uc := NewExchangeRateUsecase(repo, map[string]Driver{})
-			got, err := uc.GetRates(context.Background(), tt.filter)
+			got, err := uc.GetRates(context.Background(), tc.filter)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetRates() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("GetRates() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
-			if len(got) != len(tt.want) {
-				t.Errorf("GetRates() got = %d rates, want %d", len(got), len(tt.want))
+			if len(got) != len(tc.want) {
+				t.Errorf("GetRates() got = %d rates, want %d", len(got), len(tc.want))
 			}
 		})
 	}
@@ -342,23 +343,24 @@ func TestExchangeRateUsecase_AddRates(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		tc := tt
+		t.Run(tc.name, func(t *testing.T) {
 			repo := &mockRepository{}
 			driver := &mockDriver{}
 			drivers := map[string]Driver{"TestBank": driver}
 
-			if tt.setupRepo != nil {
-				tt.setupRepo(repo)
+			if tc.setupRepo != nil {
+				tc.setupRepo(repo)
 			}
-			if tt.setupDriver != nil {
-				tt.setupDriver(driver)
+			if tc.setupDriver != nil {
+				tc.setupDriver(driver)
 			}
 
 			uc := NewExchangeRateUsecase(repo, drivers)
 			err := uc.AddRates(context.Background())
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("AddRates() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("AddRates() error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
 	}

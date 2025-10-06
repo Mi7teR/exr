@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -46,45 +45,42 @@ func TestHalyk_FetchRates(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(baseResp)
-		}))
-		defer server.Close()
+		})
 
-		d := driver.NewHalyk(server.URL, server.Client())
+		d := driver.NewHalyk("http://mock", cli)
 		rates, err := d.FetchRates(context.Background())
 		require.NoError(t, err)
 		require.Len(t, rates, 3)
 	})
 
 	t.Run("non 200", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
-		}))
-		defer server.Close()
+		})
 
-		d := driver.NewHalyk(server.URL, server.Client())
+		d := driver.NewHalyk("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("{"))
-		}))
-		defer server.Close()
-		d := driver.NewHalyk(server.URL, server.Client())
+		})
+		d := driver.NewHalyk("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
 
 	t.Run("empty history", func(t *testing.T) {
 		emptyResp := halykMockResp{Result: true}
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(emptyResp)
-		}))
-		defer server.Close()
-		d := driver.NewHalyk(server.URL, server.Client())
+		})
+		d := driver.NewHalyk("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
@@ -100,11 +96,10 @@ func TestHalyk_FetchRates(t *testing.T) {
 				PrivatePersons: map[string]pricePair{"XAU/USD": {Sell: 1, Buy: 2}},
 			},
 		}
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-		d := driver.NewHalyk(server.URL, server.Client())
+		})
+		d := driver.NewHalyk("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -42,32 +41,30 @@ func TestFreedom_FetchRates(t *testing.T) {
 	}
 
 	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(base)
-		}))
-		defer server.Close()
-		d := driver.NewFreedom(server.URL, server.Client())
+		})
+		d := driver.NewFreedom("http://mock", cli)
 		rates, err := d.FetchRates(context.Background())
 		require.NoError(t, err)
 		require.Len(t, rates, 3)
 	})
 
 	t.Run("non 200", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
-		}))
-		defer server.Close()
-		d := driver.NewFreedom(server.URL, server.Client())
+		})
+		d := driver.NewFreedom("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("{"))
-		}))
-		defer server.Close()
-		d := driver.NewFreedom(server.URL, server.Client())
+		})
+		d := driver.NewFreedom("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
@@ -75,11 +72,10 @@ func TestFreedom_FetchRates(t *testing.T) {
 	t.Run("api success false", func(t *testing.T) {
 		resp := base
 		resp.Success = false
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-		d := driver.NewFreedom(server.URL, server.Client())
+		})
+		d := driver.NewFreedom("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
@@ -92,11 +88,10 @@ func TestFreedom_FetchRates(t *testing.T) {
 			BuyRate  string `json:"buyRate"`
 			SellRate string `json:"sellRate"`
 		}{{BuyCode: "AED", SellCode: "KZT", BuyRate: "1", SellRate: "2"}}
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		cli := newTestHTTPClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(resp)
-		}))
-		defer server.Close()
-		d := driver.NewFreedom(server.URL, server.Client())
+		})
+		d := driver.NewFreedom("http://mock", cli)
 		_, err := d.FetchRates(context.Background())
 		require.Error(t, err)
 	})
